@@ -25,16 +25,13 @@ task arraycheck_classic {
 	input {
 		Array[File] test
 		Array[File] truth
-		Int? disk_size_override
+		Int disk_size_override
 		Boolean fastfail = false  # should we exit out upon first mismatch?
 		Boolean rdata_check = false  # check with all.equal() upon failure; only use with RData files!
 		Float tolerance = 0.00000001  # tolerance to use for all.equal(); default is 1.0E-8
 	}
 
-	Int test_size = ceil(size(test, "GB"))
-	Int truth_size = ceil(size(truth, "GB"))
-	Int additive_size = test_size + truth_size + 3
-	Int finalDiskSize = select_first([disk_size_override, additive_size])
+	Int finalDiskSize = disk_size_override
 
 	command <<<
 	failed_at_least_once="false"
