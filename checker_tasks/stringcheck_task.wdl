@@ -27,6 +27,7 @@ task stringcheck {
             echo "true" > result.txt
         else
             echo "false" > result.txt
+            exit 1
         fi
     >>>
 
