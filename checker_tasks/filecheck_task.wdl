@@ -27,7 +27,7 @@ task filecheck {
 
   command <<<
     # check if test is defined
-    if [ "~{test}" ]; then
+    if [ -n "~{test}" ]; then
       echo "Test file $testbase exists."
     else
       echo "No test file found"
@@ -51,13 +51,13 @@ task filecheck {
     else
       if [ "~{verbose}" = "true" ]; then
         echo "Test checksum:" | tee -a report.txt
-        cat test.txt | tee -a report.txt
+        tee -a report.txt < test.txt
         echo "Truth checksum:" | tee -a report.txt
-        cat truth.txt | tee -a report.txt
+        tee -a report.txt < truth.txt
         echo "-=-=-=-=-=-=-=-=-=-\nContents of test file:" | tee -a report.txt
-        cat ~{test} | tee -a report.txt
+        tee -a report.txt < "~{test}"
         echo "-=-=-=-=-=-=-=-=-=-\nContents of truth file:" | tee -a report.txt
-        cat ~{truth} | tee -a report.txt
+        tee -a report.txt < "~{truth}"
         echo "-=-=-=-=-=-=-=-=-=-\ncmp and diff of files:" | tee -a report.txt
         cmp --verbose test.txt truth.txt | tee -a report.txt
         diff test.txt truth.txt | tee -a report.txt
@@ -92,10 +92,10 @@ task filecheck {
   }
 
   runtime {
-    cpu: 1
+    cpu: 4
     disks: "local-disk " + finalDiskSize + " HDD"
     docker: "quay.io/aofarrel/rchecker@sha256:73142f0f3ac5dd89dfa260a72a5397fbd7cffd9df23e3ce3e800308d6b21964c"
-    memory: "1 GB"
+    memory: "8 GB"
     preemptible: 2
   }
 
