@@ -66,7 +66,6 @@ workflow checker_nullmodel {
 		File truth__binary_nullmodel
 		File truth__binary_pheno
 		File truth__binary_report
-		File truth__binary_nullmodel
 		File truth__conditional_nullmodel
 		File truth__conditional_pheno
 		File truth__conditional_report
