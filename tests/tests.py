@@ -2,8 +2,8 @@
 
 # Requirements: * Python 3.7 or higher (to run miniwdl)
 #               * Java (to run womtool)
-#               * miniwdl: https://github.com/chanzuckerberg/miniwdl
-#               * womtool: https://github.com/broadinstitute/cromwell
+#               * womtool: https://github.com/broadinstitute/cromwell (you only need womtool, not Cromwell)
+#               * miniwdl: https://github.com/chanzuckerberg/miniwdl (must be on path, or run this script in a venv)
 
 # pylint: disable=bad-indentation,consider-using-f-string,line-too-long,missing-module-docstring,trailing-whitespace
 
