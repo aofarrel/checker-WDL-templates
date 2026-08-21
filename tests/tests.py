@@ -1,11 +1,16 @@
 # Meant to be run from the root directory of the repo.
 
+# Requirements: * Python 3.7 or higher (to run miniwdl)
+#               * Java (to run womtool)
+#               * miniwdl: https://github.com/chanzuckerberg/miniwdl
+#               * womtool: https://github.com/broadinstitute/cromwell  
+
 import subprocess
 import datetime
 import sys
 import os
 
-skip_syntax_check = True # just for debugging
+skip_syntax_check = False
 _failed_ = False
 
 def check_workflow(wf_name, subprocess_array):
@@ -25,7 +30,8 @@ def check_workflow(wf_name, subprocess_array):
 		_failed_ = True
 	tempfile.close()
 
-def syntax_check():
+def syntax_check(womtool_path: str):
+	assert os.path.isfile(womtool_path), f"User specified womtool is {womtool_path} but there is no file there"
 	print("[%s] Check syntax via womtool..." % datetime.datetime.now())
 	for root, dirs, files in os.walk(".", topdown=True):
 		for file in files:
@@ -33,7 +39,7 @@ def syntax_check():
 				this_wdl = os.path.join(root, file)
 				print("[%s] Checking %s..." % (datetime.datetime.now(), this_wdl))
 				try:
-					subprocess.check_call(["java", "-jar", "/Applications/womtool-76.jar",
+					subprocess.check_call(["java", "-jar", womtool_path,
 					 "validate", "%s" % this_wdl], stdout=subprocess.DEVNULL)
 				except subprocess.CalledProcessError as oops:
 					# womtool will print more useful stderr to command line
@@ -55,9 +61,9 @@ def cleanup_miniwdl_extras():
 	else:
 		os.system("rm -rf %s*" % today)
 
-def main():
+def main(womtool_path: str):
 	if not skip_syntax_check:
-		syntax_check()
+		syntax_check(womtool_path)
 	print("Checking workflows...")
 	print("Not checking check_task_outputs, as its inputs are not local...")
 
@@ -105,6 +111,18 @@ def main():
 	cleanup_miniwdl_extras()
 
 if __name__ == "__main__":
-	main()
+	if len(sys.argv) != 2:
+		print("Usage: python tests/tests.py [womtool_jar]")
+		print("Assumptions: ")
+		print(" * Java is on the path")
+		print(" * test_data/ folder from repo is in workdir (i.e. you're running this from the root of the repo")
+		print(" * miniwdl was pip-installed such that `miniwdl` command is on the path")
+		sys.exit(1) # not zero, so this can be caught in CICD
+	else:
+		womtool_path = sys.argv[1]
+		if not womtool_path.endswith(".jar"):
+			print("womtool doesn't have .jar extension? Make sure you to specify the jar itself, not only the path leading up to it")
+			sys.exit(1)
+		main(womtool_path)
 
 
