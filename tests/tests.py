@@ -10,24 +10,17 @@ import datetime
 import sys
 import os
 
-skip_syntax_check = True
-
 def run_workflow(wf_name, subprocess_array):
-	tempfile = open("temp.txt", "w")
-	print("[%s] Run %s via miniwdl" % (datetime.datetime.now(), wf_name))
-	try:
-		subprocess.check_call(subprocess_array,
-		stdout=subprocess.DEVNULL, stderr=tempfile)
-	except subprocess.CalledProcessError as oops:
-		tempfile.close()
-		print("ERROR - womtool returned %s" % oops.returncode)
+	print("[%s] [%s] Running via miniwdl" % (datetime.datetime.now(), wf_name))
+	result = subprocess.run(subprocess_array,
+		stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+	if result.returncode != 0:
+		print("[%s] [%s] ERROR - miniwdl run returned %s" % (datetime.datetime.now(), wf_name, result.returncode))
 		with open("miniwdl_errors.txt", "a") as stderrfile:
 			stderrfile.write("----- Error in %s ------" % this_test)
-			with open("temp.txt", "r") as captured_output:
-				for line in captured_output:
-					stderrfile.write(line)
+			stderrfile.write(result.stderr)
 		return False
-	tempfile.close()
+	print("[%s] [%s] Passed miniwdl run" % (datetime.datetime.now(), wf_name))
 	return True
 	
 def syntax_check(womtool_path: str):
@@ -41,10 +34,11 @@ def syntax_check(womtool_path: str):
 					something_failed = True
 				if not passes_womtool_validate(os.path.join(root, file), womtool_path):
 					something_failed = True
-	print("[%s] Finished syntax checking all WDLs" % datetime.datetime.now())
 	if something_failed == True:
-		print("At least one WDL failed miniwdl or Cromwell. Not running any further tests.")
-		sys.exit(1)
+		print("[%s] At least one WDL failed miniwdl check or womtool!" % datetime.datetime.now())
+		return False
+	print("[%s] Finished syntax checking all WDLs, all have passed" % datetime.datetime.now())
+	return True
 
 def passes_miniwdl_check(wdl_to_check: str) -> bool:
 	print("[%s] [%s] Checking with miniwdl..." % (datetime.datetime.now(), wdl_to_check))
@@ -70,19 +64,19 @@ def passes_womtool_validate(wdl_to_check: str, womtool_path: str) -> bool:
 	print("[%s] [%s] Passed womtool" % (datetime.datetime.now(), wdl_to_check))
 	return True
 
-def cleanup_miniwdl_extras():
-	print("Cleaning up...")
-	month_with_zero = datetime.datetime.strftime(datetime.datetime.now(), "%m")
-	day_with_zero = datetime.datetime.strftime(datetime.datetime.now(), "%d")
-	today = "".join([str(datetime.datetime.now().year), month_with_zero, day_with_zero])
-	if os.path.basename(os.getcwd()) != "checker-WDL-templates":
-		print("You don't seem to be in the expected directory. Just in case, miniwdl files will not be cleaned up.")
-	else:
-		os.system("rm -rf %s*" % today)
+# this is just too risky to be default behavior
+#def cleanup_miniwdl_extras():
+#	print("Cleaning up...")
+#	month_with_zero = datetime.datetime.strftime(datetime.datetime.now(), "%m")
+#	day_with_zero = datetime.datetime.strftime(datetime.datetime.now(), "%d")
+#	today = "".join([str(datetime.datetime.now().year), month_with_zero, day_with_zero])
+#	if os.path.basename(os.getcwd()) != "checker-WDL-templates":
+#		print("You don't seem to be in the expected directory. Just in case, miniwdl files will not be cleaned up.")
+#	else:
+#		os.system("rm -rf %s*" % today)
 
 def main(womtool_path: str):
-	if not skip_syntax_check:
-		syntax_check(womtool_path)
+	syntaxcheck_passed = syntax_check(womtool_path)
 	print("Checking workflows...")
 	print("Not checking check_task_outputs, as its inputs are not local...")
 
@@ -100,7 +94,7 @@ def main(womtool_path: str):
 		"file2=test_data/truths/allele_chr1.RData",
 		"file3=test_data/allele_chr1.RData"])
 
-	required_checker_passed: run_workflow("outputs_all_required checker case",
+	required_checker_passed = run_workflow("outputs_all_required checker case",
 		["miniwdl", "run", "check_wf_outputs/outputs_all_required/template_req.wdl",
 		"file1=test_data/NWD176325.005percent.recab.crai",
 		"file2=test_data/NWD119836.0005.recab.cram.crai",
@@ -123,11 +117,12 @@ def main(womtool_path: str):
 		"arrayTruth=test_data/truths/second_bar/bar.txt",
 		"arrayTruth=test_data/truths/foo.txt"])
 
-	if set(fuzzycheck_passed, required_base_passed, required_checker_passed, optionalouts_base_passed, optionalouts_checker_passed) != set(True):
-		print("At least one workflow failed.")
+	if set([syntaxcheck_passed, fuzzycheck_passed, required_base_passed, required_checker_passed, 
+		optionalouts_base_passed, optionalouts_checker_passed]) != set([True]):
+		print("At least one workflow failed syntax checking or while running, see above")
 		sys.exit(1)
 
-	cleanup_miniwdl_extras()
+	#cleanup_miniwdl_extras()
 
 if __name__ == "__main__":
 	if len(sys.argv) != 2:
