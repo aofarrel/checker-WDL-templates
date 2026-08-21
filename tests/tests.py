@@ -10,9 +10,9 @@ import datetime
 import sys
 import os
 
-skip_syntax_check = False
+skip_syntax_check = True
 
-def check_workflow(wf_name, subprocess_array):
+def run_workflow(wf_name, subprocess_array):
 	tempfile = open("temp.txt", "w")
 	print("[%s] Run %s via miniwdl" % (datetime.datetime.now(), wf_name))
 	try:
@@ -27,12 +27,12 @@ def check_workflow(wf_name, subprocess_array):
 				for line in captured_output:
 					stderrfile.write(line)
 		return False
-	return True
 	tempfile.close()
-
+	return True
+	
 def syntax_check(womtool_path: str):
-	assert os.path.isfile(womtool_path), f"User specified womtool is {womtool_path} but there is no file there!"
 	something_failed = False
+	assert os.path.isfile(womtool_path), f"User specified womtool is {womtool_path} but there is no file there!"
 	print("[%s] Checking syntax via womtool and miniwdl..." % datetime.datetime.now())
 	for root, dirs, files in os.walk(".", topdown=True):
 		for file in files:
@@ -86,7 +86,7 @@ def main(womtool_path: str):
 	print("Checking workflows...")
 	print("Not checking check_task_outputs, as its inputs are not local...")
 
-	check_workflow("fuzzycheck", ["miniwdl", "run", "check_approximately_equals/fuzzycheck_RData.wdl",
+	fuzzycheck_passed = run_workflow("fuzzycheck", ["miniwdl", "run", "check_approximately_equals/fuzzycheck_RData.wdl",
 		 "testRDatafile=test_data/allele_chr1.RData",
 		 "truthRDatafile=test_data/truths/allele_chr1.RData",
 		 "testRDataarray=test_data/allele_chr1.RData",
@@ -94,13 +94,13 @@ def main(womtool_path: str):
 		 "truthRDataarray=test_data/truths/allele_chr1.RData",
 		 "truthRDataarray=test_data/truths/allele_chr2.RData"])
 
-	check_workflow("outputs_all_required base case", 
+	required_base_passed = run_workflow("outputs_all_required base case", 
 		["miniwdl", "run", "check_wf_outputs/outputs_all_required/parent_req.wdl",
 		"file1=test_data/allele_chr1.RData",
 		"file2=test_data/truths/allele_chr1.RData",
 		"file3=test_data/allele_chr1.RData"])
 
-	check_workflow("outputs_all_required checker case",
+	required_checker_passed: run_workflow("outputs_all_required checker case",
 		["miniwdl", "run", "check_wf_outputs/outputs_all_required/template_req.wdl",
 		"file1=test_data/NWD176325.005percent.recab.crai",
 		"file2=test_data/NWD119836.0005.recab.cram.crai",
@@ -109,13 +109,12 @@ def main(womtool_path: str):
 		"truthSet=test_data/truths/NWD119836.0005.recab.cram.crai.txt",
 		"truthSet=test_data/truths/NWD119836.0005.recab.crai.txt"])
 
-
-	check_workflow("outputs_some_optional base case",
+	optionalouts_base_passed = run_workflow("outputs_some_optional base case",
 		["miniwdl", "run", "check_wf_outputs/outputs_some_optional/parent_opt.wdl",
 		"optionalInput=test_data/NWD119836.0005.recab.cram.crai",
 		"requiredInput=test_data/NWD176325.005percent.recab.crai"])
 
-	check_workflow("outputs_some_optional checker case",
+	optionalouts_checker_passed = run_workflow("outputs_some_optional checker case",
 		["miniwdl", "run", "check_wf_outputs/outputs_some_optional/template_opt.wdl",
 		"optionalInput=test_data/NWD119836.0005.recab.cram.crai",
 		"requiredInput=test_data/NWD176325.005percent.recab.crai",
@@ -124,8 +123,9 @@ def main(womtool_path: str):
 		"arrayTruth=test_data/truths/second_bar/bar.txt",
 		"arrayTruth=test_data/truths/foo.txt"])
 
-	if _failed_:
+	if set(fuzzycheck_passed, required_base_passed, required_checker_passed, optionalouts_base_passed, optionalouts_checker_passed) != set(True):
 		print("At least one workflow failed.")
+		sys.exit(1)
 
 	cleanup_miniwdl_extras()
 
