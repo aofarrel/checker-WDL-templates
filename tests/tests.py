@@ -11,7 +11,6 @@ import sys
 import os
 
 skip_syntax_check = False
-_failed_ = False
 
 def check_workflow(wf_name, subprocess_array):
 	tempfile = open("temp.txt", "w")
@@ -27,29 +26,49 @@ def check_workflow(wf_name, subprocess_array):
 			with open("temp.txt", "r") as captured_output:
 				for line in captured_output:
 					stderrfile.write(line)
-		_failed_ = True
+		return False
+	return True
 	tempfile.close()
 
 def syntax_check(womtool_path: str):
-	assert os.path.isfile(womtool_path), f"User specified womtool is {womtool_path} but there is no file there"
-	print("[%s] Check syntax via womtool..." % datetime.datetime.now())
+	assert os.path.isfile(womtool_path), f"User specified womtool is {womtool_path} but there is no file there!"
+	something_failed = False
+	print("[%s] Checking syntax via womtool and miniwdl..." % datetime.datetime.now())
 	for root, dirs, files in os.walk(".", topdown=True):
 		for file in files:
 			if file.endswith(".wdl"):
-				this_wdl = os.path.join(root, file)
-				print("[%s] Checking %s..." % (datetime.datetime.now(), this_wdl))
-				try:
-					subprocess.check_call(["java", "-jar", womtool_path,
-					 "validate", "%s" % this_wdl], stdout=subprocess.DEVNULL)
-				except subprocess.CalledProcessError as oops:
-					# womtool will print more useful stderr to command line
-					print("ERROR - womtool returned %s" % oops.returncode)
-					_failed_ = True
+				if not passes_miniwdl_check(os.path.join(root, file)):
+					something_failed = True
+				if not passes_womtool_validate(os.path.join(root, file), womtool_path):
+					something_failed = True
+	print("[%s] Finished syntax checking all WDLs" % datetime.datetime.now())
+	if something_failed == True:
+		print("At least one WDL failed miniwdl or Cromwell. Not running any further tests.")
+		sys.exit(1)
 
-	print("[%s] Finished syntax check." % datetime.datetime.now())
-	if _failed_ == True:
-		print("Syntax errors detected. Not running any further tests.")
-		quit()
+def passes_miniwdl_check(wdl_to_check: str) -> bool:
+	print("[%s] [%s] Checking with miniwdl..." % (datetime.datetime.now(), wdl_to_check))
+	try:
+		subprocess.check_call(["miniwdl", "check", wdl_to_check], stdout=subprocess.DEVNULL)
+	except subprocess.CalledProcessError as oops:
+		print("[%s] [%s] ERROR - miniwdl check returned %s" % 
+			(datetime.datetime.now(), wdl_to_check, oops.returncode))
+		return False
+	print("[%s] [%s] Passed miniwdl" % (datetime.datetime.now(), wdl_to_check))
+	return True
+
+def passes_womtool_validate(wdl_to_check: str, womtool_path: str) -> bool:
+	print("[%s] [%s] Checking with womtool..." % (datetime.datetime.now(), wdl_to_check))
+	try:
+		subprocess.check_call(["java", "-jar", womtool_path,
+		 "validate", wdl_to_check], stdout=subprocess.DEVNULL)
+	except subprocess.CalledProcessError as oops:
+		# womtool will print more useful stderr to command line
+		print("[%s] [%s] ERROR - womtool returned %s" % 
+			(datetime.datetime.now(), wdl_to_check, oops.returncode))
+		return False
+	print("[%s] [%s] Passed womtool" % (datetime.datetime.now(), wdl_to_check))
+	return True
 
 def cleanup_miniwdl_extras():
 	print("Cleaning up...")
