@@ -1,4 +1,5 @@
 #!/bin/bash
+# This is a simplified version of tests.py
 
 # ███████████████████████████████████ LICENSE ██████████████████████████████████
 # Copyright 2022 Aisling "Ash" O'Farrell

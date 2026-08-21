@@ -3,7 +3,9 @@
 # Requirements: * Python 3.7 or higher (to run miniwdl)
 #               * Java (to run womtool)
 #               * miniwdl: https://github.com/chanzuckerberg/miniwdl
-#               * womtool: https://github.com/broadinstitute/cromwell  
+#               * womtool: https://github.com/broadinstitute/cromwell
+
+# pylint: disable=bad-indentation,consider-using-f-string,line-too-long,missing-module-docstring,trailing-whitespace
 
 import subprocess
 import datetime
@@ -11,36 +13,38 @@ import sys
 import os
 
 def run_workflow(wf_name, subprocess_array):
+	"""Runs workflow via miniwdl (instead of Cromwell, because Cromwell is slow locally)"""
 	print("[%s] [%s] Running via miniwdl" % (datetime.datetime.now(), wf_name))
 	result = subprocess.run(subprocess_array,
-		stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+		stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, check=False)
 	if result.returncode != 0:
 		print("[%s] [%s] ERROR - miniwdl run returned %s" % (datetime.datetime.now(), wf_name, result.returncode))
-		with open("miniwdl_errors.txt", "a") as stderrfile:
-			stderrfile.write("----- Error in %s ------" % this_test)
+		with open("miniwdl_errors.txt", "a", encoding="utf-8") as stderrfile:
+			stderrfile.write("----- Error in %s ------" % wf_name)
 			stderrfile.write(result.stderr)
 		return False
 	print("[%s] [%s] Passed miniwdl run" % (datetime.datetime.now(), wf_name))
 	return True
 	
-def syntax_check(womtool_path: str):
+def syntax_check(womtool_jar: str):
+	"""Run womtool and miniwdl check on every workflow in the repo"""
 	something_failed = False
-	assert os.path.isfile(womtool_path), f"User specified womtool is {womtool_path} but there is no file there!"
 	print("[%s] Checking syntax via womtool and miniwdl..." % datetime.datetime.now())
-	for root, dirs, files in os.walk(".", topdown=True):
+	for root, _, files in os.walk(".", topdown=True):
 		for file in files:
 			if file.endswith(".wdl"):
 				if not passes_miniwdl_check(os.path.join(root, file)):
 					something_failed = True
-				if not passes_womtool_validate(os.path.join(root, file), womtool_path):
+				if not passes_womtool_validate(os.path.join(root, file), womtool_jar):
 					something_failed = True
-	if something_failed == True:
+	if something_failed is True:
 		print("[%s] At least one WDL failed miniwdl check or womtool!" % datetime.datetime.now())
 		return False
 	print("[%s] Finished syntax checking all WDLs, all have passed" % datetime.datetime.now())
 	return True
 
 def passes_miniwdl_check(wdl_to_check: str) -> bool:
+	"""Does `miniwdl check wdl_to_check` return 0? (WARNINGS WILL NOT BE SHOWN)"""
 	print("[%s] [%s] Checking with miniwdl..." % (datetime.datetime.now(), wdl_to_check))
 	try:
 		subprocess.check_call(["miniwdl", "check", wdl_to_check], stdout=subprocess.DEVNULL)
@@ -51,10 +55,11 @@ def passes_miniwdl_check(wdl_to_check: str) -> bool:
 	print("[%s] [%s] Passed miniwdl" % (datetime.datetime.now(), wdl_to_check))
 	return True
 
-def passes_womtool_validate(wdl_to_check: str, womtool_path: str) -> bool:
+def passes_womtool_validate(wdl_to_check: str, womtool_jar: str) -> bool:
+	"""Does `java -jar womtool_jar validate wdl_to_check` return 0?"""
 	print("[%s] [%s] Checking with womtool..." % (datetime.datetime.now(), wdl_to_check))
 	try:
-		subprocess.check_call(["java", "-jar", womtool_path,
+		subprocess.check_call(["java", "-jar", womtool_jar,
 		 "validate", wdl_to_check], stdout=subprocess.DEVNULL)
 	except subprocess.CalledProcessError as oops:
 		# womtool will print more useful stderr to command line
@@ -75,8 +80,9 @@ def passes_womtool_validate(wdl_to_check: str, womtool_path: str) -> bool:
 #	else:
 #		os.system("rm -rf %s*" % today)
 
-def main(womtool_path: str):
-	syntaxcheck_passed = syntax_check(womtool_path)
+def main(womtool_jar: str):
+	"""Check syntax and run five workflows"""
+	syntaxcheck_passed = syntax_check(womtool_jar)
 	print("Checking workflows...")
 	print("Not checking check_task_outputs, as its inputs are not local...")
 
@@ -137,6 +143,5 @@ if __name__ == "__main__":
 		if not womtool_path.endswith(".jar"):
 			print("womtool doesn't have .jar extension? Make sure you to specify the jar itself, not only the path leading up to it")
 			sys.exit(1)
+		assert os.path.isfile(womtool_path), f"User specified womtool is {womtool_path} but there is no file there!"
 		main(womtool_path)
-
-
